@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-[RequireComponent(typeof(Rigidbody2D))]
 public class PlayerScript : MonoBehaviour
 {
     public float speed = 5f;
@@ -11,7 +10,6 @@ public class PlayerScript : MonoBehaviour
     private Animator animator;
     private Vector2 mousePosition;
     private Camera mainCamera;
-    private Vector2 facingDirection = Vector2.right; // Направление взгляда (по умолчанию вправо)
 
     void Awake()
     {
@@ -32,36 +30,32 @@ public class PlayerScript : MonoBehaviour
 
     void FixedUpdate()
     {
-        // ==================== Направление к курсору ====================
-Vector3 screenPoint = new Vector3(mousePosition.x, mousePosition.y, mainCamera.WorldToScreenPoint(transform.position).z);
-Vector3 worldMousePos = mainCamera.ScreenToWorldPoint(screenPoint);
+        // === Поворот персонажа в сторону мыши ===
+        Vector3 screenPoint = new Vector3(mousePosition.x, mousePosition.y, mainCamera.WorldToScreenPoint(transform.position).z);
+        Vector3 worldMousePos = mainCamera.ScreenToWorldPoint(screenPoint);
 
-// Исправленная строка — выбирай один из вариантов:
-Vector2 directionToMouse = ((Vector2)worldMousePos - rb.position).normalized;  // Рекомендую этот
+        Vector2 directionToMouse = ((Vector2)worldMousePos - rb.position).normalized;
 
-// Обновляем facing только если курсор не прямо на персонаже
-if (directionToMouse.sqrMagnitude > 0.01f)
-{
-    facingDirection = directionToMouse;
+        if (directionToMouse.sqrMagnitude > 0.01f)
+        {
+            float angle = Mathf.Atan2(directionToMouse.y, directionToMouse.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(0, 0, angle);
+        }
 
-    float angle = Mathf.Atan2(facingDirection.y, facingDirection.x) * Mathf.Rad2Deg;
-    transform.rotation = Quaternion.Euler(0, 0, angle);
-}
-        // ==================== Движение относительно направления взгляда ====================
-        // forward * Y (W/S) + strafeRight * X (A/D)
-        Vector2 forward = facingDirection;
-        Vector2 strafeRight = new Vector2(forward.y, -forward.x); // Правый стрейф (90° по часовой)
-        Vector2 moveDirection = forward * moveInput.y + strafeRight * moveInput.x;
+        // === Движение: фиксированное по миру (WASD относительно экрана) ===
+        // moveInput.x — A/D (влево/вправо по горизонтали мира)
+        // moveInput.y — W/S (вверх/вниз по вертикали мира)
+        Vector2 moveDirection = moveInput;
 
-        // Нормализация для равной скорости по диагонали
         if (moveDirection.sqrMagnitude > 1f)
             moveDirection.Normalize();
 
-        // Применяем
         rb.MovePosition(rb.position + moveDirection * speed * Time.fixedDeltaTime);
 
-        // Анимация
+        // Анимация ходьбы (по факту движения)
         if (animator != null)
-            animator.SetBool("IsWalking", moveDirection != Vector2.zero);
+        {
+            animator.SetBool("IsWalking", moveDirection.sqrMagnitude > 0.01f);
+        }
     }
 }
