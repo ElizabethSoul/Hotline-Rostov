@@ -3,6 +3,7 @@ using UnityEngine.AI;
 public enum AttackType { Melee, Ranged }
 
 [RequireComponent(typeof(NavMeshAgent))]
+[RequireComponent(typeof(DropItems))]
 public class Enemy : MonoBehaviour
 {
     [Header("Health & Damage")]
@@ -63,6 +64,7 @@ public class Enemy : MonoBehaviour
 
     private EnemyStateMachine stateMachine;
     private float currentHealth;
+    private DropItems dropItems;
 
     // Публичные свойства для состояний
     public bool UsePatrol => usePatrol;                     // Новый геттер
@@ -113,6 +115,7 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
     {
         currentHealth = maxHealth;
         homePosition = transform.position;
+        dropItems = GetComponent<DropItems>();
 
         PlayerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
         if (PlayerTransform == null)
@@ -187,6 +190,8 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
     // Урон от пули (вызывается из Bullet.cs)
     public void TakeDamage(int amount)
     {
+        if (currentHealth <= 0) return; // уже мёртв
+
         currentHealth -= amount;
         Debug.Log($"{name} получил {amount} урона. Здоровье: {currentHealth}/{maxHealth}");
 
@@ -198,11 +203,37 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
 
     private void Die()
     {
+        // Остановить поведение
         Stop();
+
+        // Отключаем анимацию и все коллайдеры, чтобы объект стал неинтерактивным
         if (animator != null)
             animator.SetBool(WalkHash, false);
-        GetComponent<Collider2D>().enabled = false;
-        // Можно добавить анимацию смерти
+
+        // Отключаем все 2D-коллайдеры на объекте и дочерних объектах
+        Collider2D[] coll2D = GetComponentsInChildren<Collider2D>(true);
+        foreach (var c in coll2D)
+            c.enabled = false;
+
+        // Отключаем все 3D-коллайдеры на объекте и дочерних объектах
+        Collider[] coll3D = GetComponentsInChildren<Collider>(true);
+        foreach (var c in coll3D)
+            c.enabled = false;
+
+        // Отключаем навмеш-агент и состояние врага
+        if (agent != null)
+        {
+            try { agent.enabled = false; } catch {}
+        }
+
+        // Отключаем сам скрипт состояния, чтобы предотвратить дальнейшие взаимодействия
+        try { this.enabled = false; } catch {}
+
+        // Выпадение предметов при смерти
+        if (dropItems != null)
+            dropItems.DropEnemyItems(transform.position);
+
+        // Удаляем объект через некоторое время (даём время эффектам/предметам)
         Destroy(gameObject, 3f);
     }
 

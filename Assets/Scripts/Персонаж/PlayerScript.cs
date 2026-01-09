@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
+using TMPro;
 
 public interface IDamageable
 {
@@ -17,6 +19,8 @@ public class PlayerScript : MonoBehaviour, IDamageable
     private Camera mainCamera;
     private float currentHealth;
     private ObjectsInteraction currentInteractable;
+    [SerializeField] private Image hpBarImage;
+    [SerializeField] private TextMeshProUGUI coinsText;
 
     void Awake()
     {
@@ -24,6 +28,17 @@ public class PlayerScript : MonoBehaviour, IDamageable
         animator = GetComponentInChildren<Animator>();
         mainCamera = Camera.main;
         currentHealth = maxHealth;
+        
+        // Инициализируем HP bar, если он назначен в инспекторе
+        if (hpBarImage != null)
+            UpdateHPBar();
+
+        // Инициализируем отображение монет и подписываемся на изменения
+        if (coinsText != null)
+        {
+            UpdateCoinsDisplay(CurrencyManager.GetCoins());
+            CurrencyManager.OnCoinsChanged += UpdateCoinsDisplay;
+        }
     }
 
     public void OnPointerPosition(InputAction.CallbackContext ctx)
@@ -79,9 +94,27 @@ public class PlayerScript : MonoBehaviour, IDamageable
         currentHealth -= amount;
         Debug.Log($"[Player] Получен урон: {amount}. Здоровье: {currentHealth}/{maxHealth}");
         
+        UpdateHPBar();
+        
         if (currentHealth <= 0)
         {
             Die();
+        }
+    }
+
+    private void UpdateHPBar()
+    {
+        if (hpBarImage != null)
+        {
+            hpBarImage.fillAmount = Mathf.Clamp01(currentHealth / maxHealth);
+        }
+    }
+
+    private void UpdateCoinsDisplay(int coinAmount)
+    {
+        if (coinsText != null)
+        {
+            coinsText.text = $"{coinAmount}";
         }
     }
 
