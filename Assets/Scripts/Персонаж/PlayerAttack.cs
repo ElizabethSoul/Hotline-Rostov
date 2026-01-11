@@ -27,12 +27,6 @@ public class PlayerAttack : MonoBehaviour
 
     private void SpawnBullet()
     {
-        if (bulletPrefab == null)
-        {
-            if (debugMessages) Debug.LogWarning("Bullet prefab not assigned");
-            return;
-        }
-
         Vector3 origin = firePoint.position;
         Vector2 dir = firePoint.position - transform.position;
         Vector3 spawnPos = origin + (Vector3)dir*0.5f;

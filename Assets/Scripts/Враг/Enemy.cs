@@ -30,9 +30,6 @@ public class Enemy : MonoBehaviour
     [Tooltip("Максимальное число попыток найти корректную точку на NavMesh.")]
     [SerializeField] private int wanderAttempts = 20;
 
-    [Tooltip("Время ожидания между сменой случайной точки блуждания (если 0 — выбирает новую точку сразу после прибытия).")]
-    [SerializeField] private float wanderWaitTime = 1.5f;
-
     [Header("Detection")]
     [SerializeField] private float detectionRange = 8f;
     [SerializeField] private float attackRange = 1.3f;
@@ -80,7 +77,7 @@ public class Enemy : MonoBehaviour
     private bool isPlayerInMeleeRange = false;
 
     public bool UsePatrol => usePatrol;  
-public Transform[] PatrolPoints => patrolPoints; 
+    public Transform[] PatrolPoints => patrolPoints; 
     public float RangedAttackRange => rangedAttackRange;
     public float PatrolSpeed => patrolSpeed;
     public float ChaseSpeed => chaseSpeed;
@@ -109,39 +106,28 @@ public Transform[] PatrolPoints => patrolPoints;
         agent = GetComponent<NavMeshAgent>();
         rb2d = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
-        if (rb2d != null)
-        {
-            rb2d.gravityScale = 0f;
-            // предотвратить вращение через физику — поворот управляется кодом
-            try { rb2d.freezeRotation = true; } catch {}
-        }
+        try { rb2d.freezeRotation = true; } catch {}
         agent.updateRotation = false;
-        #if UNITY_2019_1_OR_NEWER
         try { agent.updateUpAxis = false; } catch {}
-        #endif
         try { agent.updatePosition = false; } catch {}
         try { agent.baseOffset = 0f; } catch {}
+        // Убираем инерцию для мгновенного разгона и торможения
+        agent.acceleration = 100f;
     }
 
     private void Start()
     {
         currentHealth = maxHealth;
-        // Домашняя (начальная) позиция — позиция спавна
         homePosition = (Vector2)transform.position;
         dropItems = GetComponent<DropItems>();
-
         PlayerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
-        if (PlayerTransform == null)
-            Debug.LogError("[Enemy] Игрок с тегом 'Player' не найден!");
-
         stateMachine = new EnemyStateMachine();
-
-        IdleState    = new IdleState(this, stateMachine);
-        PatrolState  = new PatrolState(this, stateMachine, patrolPoints);
-        ChaseState   = new ChaseState(this, stateMachine);
-        AttackState  = new AttackState(this, stateMachine);
+        IdleState = new IdleState(this, stateMachine);
+        PatrolState = new PatrolState(this, stateMachine, patrolPoints);
+        ChaseState = new ChaseState(this, stateMachine);
+        AttackState = new AttackState(this, stateMachine);
         RangeAttackState = new RangeAttackState(this, stateMachine);
-        ReturnState  = new ReturnState(this, stateMachine, homePosition);
+        ReturnState = new ReturnState(this, stateMachine, homePosition);
 
         if (usePatrol && patrolPoints != null && patrolPoints.Length > 0)
             stateMachine.Initialize(PatrolState);
@@ -162,8 +148,6 @@ public Transform[] PatrolPoints => patrolPoints;
         stateMachine.CurrentState.PhysicsUpdate();
         if (agent != null && rb2d != null)
         {
-            // Если агент и трансформ рассинхронизировались (например, физика помешала движению),
-            // обновим внутреннюю позицию агента, чтобы он не пытался резко подправлять позицию.
             float syncDistance = Mathf.Max(0.5f, agent.radius * 0.5f);
             if (Vector3.Distance(transform.position, agent.nextPosition) > syncDistance)
             {
@@ -183,27 +167,23 @@ public Transform[] PatrolPoints => patrolPoints;
         animator.SetBool(WalkHash, true);
     }
 
-    // Вызвать анимацию ближней атаки (триггер)
     public void TriggerMeleeAttack()
     {
-        if (animator != null && !string.IsNullOrEmpty(meleeAttackTrigger))
+        if (!string.IsNullOrEmpty(meleeAttackTrigger))
             animator.SetTrigger(meleeAttackTrigger);
     }
 
-    // Вызывается хитбоксом при входе/выходе игрока
     public void SetPlayerInMeleeRange(bool value)
     {
         isPlayerInMeleeRange = value;
-        if (value && stateMachine != null)
+        if (value)
         {
             stateMachine.ChangeState(AttackState);
         }
     }
 
-    // При срабатывании любого триггер-коллайдера, принадлежащего этому Rigidbody2D/объекту
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other == null) return;
         if (other.CompareTag("Player"))
         {
             isPlayerInMeleeRange = true;
@@ -213,14 +193,12 @@ public Transform[] PatrolPoints => patrolPoints;
 
     private void OnTriggerExit2D(Collider2D other)
     {
-        if (other == null) return;
         if (other.CompareTag("Player"))
         {
             isPlayerInMeleeRange = false;
         }
     }
 
-    // Попытаться найти достижимую точку на NavMesh в радиусе wanderRadius вокруг текущей позиции
     public bool TryGetRandomNavMeshPosition(out Vector3 result)
     {
         Vector3 origin = transform.position;
@@ -230,22 +208,19 @@ public Transform[] PatrolPoints => patrolPoints;
             return false;
         }
 
-        NavMeshPath path = new NavMeshPath();
+        NavMeshPath path = new();
         for (int i = 0; i < Mathf.Max(1, wanderAttempts); i++)
         {
-            // выбираем направление и дистанцию в диапазоне [wanderMinDistance, wanderRadius]
             float dist = Random.Range(Mathf.Max(0f, wanderMinDistance), wanderRadius);
             Vector2 dir = Random.insideUnitCircle.normalized;
             Vector3 sample = origin + new Vector3(dir.x * dist, dir.y * dist, 0f);
 
             NavMeshHit hit;
-            // ищем ближайшую точку NavMesh к sample в пределах 1.5 м
             if (!NavMesh.SamplePosition(sample, out hit, 1.5f, NavMesh.AllAreas))
                 continue;
 
             Vector3 candidate = hit.position;
 
-            // Если есть агент, убедимся, что путь к точке полный и длина пути достаточна
             if (agent != null)
             {
                 agent.CalculatePath(candidate, path);
@@ -304,9 +279,7 @@ public Transform[] PatrolPoints => patrolPoints;
     private void Die()
     {
         Stop();
-
         animator.SetBool(WalkHash, false);
-
         Collider2D[] coll2D = GetComponentsInChildren<Collider2D>(true);
         foreach (var c in coll2D)
             c.enabled = false;

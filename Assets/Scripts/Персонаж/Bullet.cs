@@ -13,14 +13,13 @@ public class Bullet : MonoBehaviour
     {
         enemyMask = LayerMask.GetMask("Enemy");
         rb = GetComponent<Rigidbody2D>();
-        if (rb == null) Debug.LogError("Bullet needs a Rigidbody2D");
-        if (rb != null) rb.gravityScale = 0f; 
+        rb.gravityScale = 0f; 
         Destroy(gameObject, lifetime);
     }
 
     public void SetDirection(Vector2 dir)
     {
-        if (rb == null) rb = GetComponent<Rigidbody2D>();
+        rb = GetComponent<Rigidbody2D>();
         rb.linearVelocity = dir.normalized * speed;
     }
 
@@ -31,15 +30,12 @@ public class Bullet : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D other)
     {
-        // Игнорируем врага, который выстрелил
         if (sourceEnemy != null && other.gameObject == sourceEnemy)
             return;
 
-        // Проверяем врагов
         if ((enemyMask.value & (1 << other.gameObject.layer)) > 0)
         {
-            Enemy enemy = other.gameObject.GetComponent<Enemy>();
-            if (enemy != null)
+            if (other.gameObject.TryGetComponent<Enemy>(out var enemy))
             {
                 enemy.TakeDamage(damage);
                 Debug.Log("Bullet hit enemy with " + damage + " damage");
@@ -49,8 +45,7 @@ public class Bullet : MonoBehaviour
         }
 
         // Проверяем игрока через интерфейс IDamageable
-        IDamageable damageable = other.gameObject.GetComponent<IDamageable>();
-        if (damageable != null)
+        if (other.gameObject.TryGetComponent<IDamageable>(out var damageable))
         {
             damageable.TakeDamage(damage);
             Debug.Log("Bullet hit player with " + damage + " damage");
