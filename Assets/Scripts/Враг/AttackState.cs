@@ -16,13 +16,28 @@ public class AttackState : EnemyState
 
     public override void LogicUpdate()
     {
-        if (!enemy.CanAttackPlayer)
+        if (!enemy.CanSeePlayer)
         {
-            if (enemy.CanSeePlayer)
-                stateMachine.ChangeState(enemy.ChaseState);
-            else
-                stateMachine.ChangeState(enemy.ReturnState);
+            stateMachine.ChangeState(enemy.ReturnState);
             return;
+        }
+
+        // Ближняя атака: ожидаем срабатывания триггерного хитбокса
+        if (enemy.AttackTypeEnum == AttackType.Melee)
+        {
+            if (!enemy.IsPlayerInMeleeRange)
+            {
+                // двигаться к игроку
+                if (enemy.PlayerTransform != null)
+                {
+                    enemy.MoveTowards(enemy.PlayerTransform.position, enemy.ChaseSpeed);
+                    return;
+                }
+            }
+            else
+            {
+                enemy.Stop();
+            }
         }
 
         if (Time.time >= lastAttackTime + enemy.AttackCooldown)
@@ -34,6 +49,8 @@ public class AttackState : EnemyState
 
     private void AttackPlayer()
     {
+        // Запустить анимацию ближней атаки
+        enemy.TriggerMeleeAttack();
         if (enemy.PlayerTransform.TryGetComponent(out IDamageable damageable))
         {
             damageable.TakeDamage((int)enemy.AttackDamage);

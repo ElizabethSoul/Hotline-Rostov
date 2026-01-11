@@ -19,6 +19,19 @@ public class Enemy : MonoBehaviour
     [Header("Movement")]
     [SerializeField] private float patrolSpeed = 1.8f;
     [SerializeField] private float chaseSpeed = 3.5f;
+    
+    [Header("Патруль / Блуждание")]
+    [Tooltip("Радиус, в пределах которого враг будет случайно блуждать по NavMesh, если у него нет патрульных точек.")]
+    [SerializeField] private float wanderRadius = 8f;
+
+    [Tooltip("Минимальная дистанция от текущей позиции до выбранной точки блуждания (чтобы не выбирать слишком близкие точки).")]
+    [SerializeField] private float wanderMinDistance = 2f;
+
+    [Tooltip("Максимальное число попыток найти корректную точку на NavMesh.")]
+    [SerializeField] private int wanderAttempts = 20;
+
+    [Tooltip("Время ожидания между сменой случайной точки блуждания (если 0 — выбирает новую точку сразу после прибытия).")]
+    [SerializeField] private float wanderWaitTime = 1.5f;
 
     [Header("Detection")]
     [SerializeField] private float detectionRange = 8f;
@@ -34,15 +47,16 @@ public class Enemy : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private bool showGizmos = true;
 
-    // Компоненты и ссылки
     private NavMeshAgent agent;
     private Rigidbody2D rb2d;
-    [SerializeField] private Animator animator;
+    private Animator animator;
+    [Header("Анимации")]
+    [Tooltip("Имя триггера аниматора для ближней атаки.")]
+    [SerializeField] private string meleeAttackTrigger = "Attack";
     private static readonly int WalkHash = Animator.StringToHash("isWalking");
     public Transform PlayerTransform { get; private set; }
     private Vector2 homePosition;
 
-    // Состояния
     public IdleState IdleState { get; private set; }
     public PatrolState PatrolState { get; private set; }
     public ChaseState ChaseState { get; private set; }
@@ -50,13 +64,11 @@ public class Enemy : MonoBehaviour
     public RangeAttackState RangeAttackState { get; private set; }
     public ReturnState ReturnState { get; private set; }
 
-    // Определяемое состояние атаки в зависимости от типа
     public EnemyState CurrentAttackState 
     { 
         get { return attackType == AttackType.Melee ? AttackState : (EnemyState)RangeAttackState; } 
     }
 
-    // Радиус атаки в зависимости от типа
     public float CurrentAttackRange
     {
         get { return attackType == AttackType.Melee ? attackRange : rangedAttackRange; }
@@ -65,10 +77,10 @@ public class Enemy : MonoBehaviour
     private EnemyStateMachine stateMachine;
     private float currentHealth;
     private DropItems dropItems;
+    private bool isPlayerInMeleeRange = false;
 
-    // Публичные свойства для состояний
-    public bool UsePatrol => usePatrol;                     // Новый геттер
-public Transform[] PatrolPoints => patrolPoints;        // Новый геттер (для точек патруля)
+    public bool UsePatrol => usePatrol;  
+public Transform[] PatrolPoints => patrolPoints; 
     public float RangedAttackRange => rangedAttackRange;
     public float PatrolSpeed => patrolSpeed;
     public float ChaseSpeed => chaseSpeed;
@@ -84,6 +96,7 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
 
     public bool CanSeePlayer => PlayerInRange(detectionRange);
     public bool CanAttackPlayer => PlayerInRange(CurrentAttackRange);
+    public bool IsPlayerInMeleeRange => isPlayerInMeleeRange;
 
     private bool PlayerInRange(float range)
     {
@@ -95,26 +108,26 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
     {
         agent = GetComponent<NavMeshAgent>();
         rb2d = GetComponent<Rigidbody2D>();
-        if (animator == null)
-            animator = GetComponent<Animator>();
+        animator = GetComponent<Animator>();
         if (rb2d != null)
         {
-            rb2d.gravityScale = 0f; // top-down: отключаем гравитацию у тела
+            rb2d.gravityScale = 0f;
+            // предотвратить вращение через физику — поворот управляется кодом
+            try { rb2d.freezeRotation = true; } catch {}
         }
         agent.updateRotation = false;
         #if UNITY_2019_1_OR_NEWER
         try { agent.updateUpAxis = false; } catch {}
         #endif
-        // Отключаем автоматическое перемещение агента — будем двигать через Rigidbody2D
         try { agent.updatePosition = false; } catch {}
-        // На всякий случай обнулим baseOffset для 2D
         try { agent.baseOffset = 0f; } catch {}
     }
 
     private void Start()
     {
         currentHealth = maxHealth;
-        homePosition = transform.position;
+        // Домашняя (начальная) позиция — позиция спавна
+        homePosition = (Vector2)transform.position;
         dropItems = GetComponent<DropItems>();
 
         PlayerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
@@ -140,30 +153,122 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
     {
         if (currentHealth <= 0) return;
         stateMachine.CurrentState.LogicUpdate();
-        FaceMovementDirection(); // top-down поворот как у игрока
+        FaceMovementDirection();
     }
 
     private void FixedUpdate()
     {
         if (currentHealth <= 0) return;
         stateMachine.CurrentState.PhysicsUpdate();
-        // Синхронизируем расчетную позицию агента с физическим телом (для 2D)
         if (agent != null && rb2d != null)
         {
+            // Если агент и трансформ рассинхронизировались (например, физика помешала движению),
+            // обновим внутреннюю позицию агента, чтобы он не пытался резко подправлять позицию.
+            float syncDistance = Mathf.Max(0.5f, agent.radius * 0.5f);
+            if (Vector3.Distance(transform.position, agent.nextPosition) > syncDistance)
+            {
+                agent.nextPosition = transform.position;
+            }
+
             Vector3 next = agent.nextPosition;
             rb2d.MovePosition(new Vector2(next.x, next.y));
         }
     }
-
-    // Движение
     public void MoveTowards(Vector3 target, float speed)
     {
         if (agent == null) return;
         agent.speed = speed;
         agent.isStopped = false;
         agent.SetDestination(new Vector3(target.x, target.y, 0f));
-        if (animator != null)
-            animator.SetBool(WalkHash, true);
+        animator.SetBool(WalkHash, true);
+    }
+
+    // Вызвать анимацию ближней атаки (триггер)
+    public void TriggerMeleeAttack()
+    {
+        if (animator != null && !string.IsNullOrEmpty(meleeAttackTrigger))
+            animator.SetTrigger(meleeAttackTrigger);
+    }
+
+    // Вызывается хитбоксом при входе/выходе игрока
+    public void SetPlayerInMeleeRange(bool value)
+    {
+        isPlayerInMeleeRange = value;
+        if (value && stateMachine != null)
+        {
+            stateMachine.ChangeState(AttackState);
+        }
+    }
+
+    // При срабатывании любого триггер-коллайдера, принадлежащего этому Rigidbody2D/объекту
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other == null) return;
+        if (other.CompareTag("Player"))
+        {
+            isPlayerInMeleeRange = true;
+            stateMachine?.ChangeState(AttackState);
+        }
+    }
+
+    private void OnTriggerExit2D(Collider2D other)
+    {
+        if (other == null) return;
+        if (other.CompareTag("Player"))
+        {
+            isPlayerInMeleeRange = false;
+        }
+    }
+
+    // Попытаться найти достижимую точку на NavMesh в радиусе wanderRadius вокруг текущей позиции
+    public bool TryGetRandomNavMeshPosition(out Vector3 result)
+    {
+        Vector3 origin = transform.position;
+        if (wanderRadius <= 0f)
+        {
+            result = origin;
+            return false;
+        }
+
+        NavMeshPath path = new NavMeshPath();
+        for (int i = 0; i < Mathf.Max(1, wanderAttempts); i++)
+        {
+            // выбираем направление и дистанцию в диапазоне [wanderMinDistance, wanderRadius]
+            float dist = Random.Range(Mathf.Max(0f, wanderMinDistance), wanderRadius);
+            Vector2 dir = Random.insideUnitCircle.normalized;
+            Vector3 sample = origin + new Vector3(dir.x * dist, dir.y * dist, 0f);
+
+            NavMeshHit hit;
+            // ищем ближайшую точку NavMesh к sample в пределах 1.5 м
+            if (!NavMesh.SamplePosition(sample, out hit, 1.5f, NavMesh.AllAreas))
+                continue;
+
+            Vector3 candidate = hit.position;
+
+            // Если есть агент, убедимся, что путь к точке полный и длина пути достаточна
+            if (agent != null)
+            {
+                agent.CalculatePath(candidate, path);
+                if (path.status != NavMeshPathStatus.PathComplete)
+                    continue;
+
+                // вычисляем длину пути
+                float pathLength = 0f;
+                if (path.corners.Length >= 2)
+                {
+                    for (int c = 1; c < path.corners.Length; c++)
+                        pathLength += Vector3.Distance(path.corners[c - 1], path.corners[c]);
+                }
+                if (pathLength < wanderMinDistance)
+                    continue;
+            }
+
+            result = candidate;
+            return true;
+        }
+
+        result = origin;
+        return false;
     }
 
     public void Stop()
@@ -171,11 +276,8 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
         if (agent == null) return;
         agent.ResetPath();
         agent.isStopped = true;
-        if (animator != null)
-            animator.SetBool(WalkHash, false);
+        animator.SetBool(WalkHash, false);
     }
-
-    // Поворот в сторону движения (как у PlayerScript)
     private void FaceMovementDirection()
     {
         if (agent == null) return;
@@ -186,11 +288,9 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
             transform.rotation = Quaternion.Euler(0, 0, angle);
         }
     }
-
-    // Урон от пули (вызывается из Bullet.cs)
     public void TakeDamage(int amount)
     {
-        if (currentHealth <= 0) return; // уже мёртв
+        if (currentHealth <= 0) return; 
 
         currentHealth -= amount;
         Debug.Log($"{name} получил {amount} урона. Здоровье: {currentHealth}/{maxHealth}");
@@ -198,42 +298,33 @@ public Transform[] PatrolPoints => patrolPoints;        // Новый гетте
         if (currentHealth <= 0)
             Die();
         else
-            stateMachine.ChangeState(ChaseState); // агримся при попадании
+            stateMachine.ChangeState(ChaseState);
     }
 
     private void Die()
     {
-        // Остановить поведение
         Stop();
 
-        // Отключаем анимацию и все коллайдеры, чтобы объект стал неинтерактивным
-        if (animator != null)
-            animator.SetBool(WalkHash, false);
+        animator.SetBool(WalkHash, false);
 
-        // Отключаем все 2D-коллайдеры на объекте и дочерних объектах
         Collider2D[] coll2D = GetComponentsInChildren<Collider2D>(true);
         foreach (var c in coll2D)
             c.enabled = false;
 
-        // Отключаем все 3D-коллайдеры на объекте и дочерних объектах
         Collider[] coll3D = GetComponentsInChildren<Collider>(true);
         foreach (var c in coll3D)
             c.enabled = false;
 
-        // Отключаем навмеш-агент и состояние врага
         if (agent != null)
         {
             try { agent.enabled = false; } catch {}
         }
 
-        // Отключаем сам скрипт состояния, чтобы предотвратить дальнейшие взаимодействия
         try { this.enabled = false; } catch {}
 
-        // Выпадение предметов при смерти
         if (dropItems != null)
             dropItems.DropEnemyItems(transform.position);
 
-        // Удаляем объект через некоторое время (даём время эффектам/предметам)
         Destroy(gameObject, 3f);
     }
 
