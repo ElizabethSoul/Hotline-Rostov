@@ -27,16 +27,23 @@ public class PlayerAttack : MonoBehaviour
 
     private void SpawnBullet()
     {
-        Vector3 origin = firePoint.position;
-        Vector2 dir = firePoint.position - transform.position;
-        Vector3 spawnPos = origin + (Vector3)dir*0.5f;
+        Vector3 origin = (firePoint != null) ? firePoint.position : transform.position;
 
-        var bulletInstance = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
+        Vector2 dir;
+        if (firePoint != null)
+            dir = firePoint.right; // local forward of the fire point
+        else
+            dir = transform.right;
+
+        Vector3 spawnPos = origin + (Vector3)dir.normalized * 0.1f;
+
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        var bulletInstance = Instantiate(bulletPrefab, spawnPos, Quaternion.Euler(0f, 0f, angle));
         bulletInstance.damage = damage;
         bulletInstance.SetDirection(dir);
 
-        if (debugMessages) Debug.Log($"Spawned bullet at {spawnPos} dir {dir}");
-        Debug.DrawLine(spawnPos, spawnPos + Vector3.up * 0.1f, Color.blue, 0.2f);
+        if (debugMessages) Debug.Log($"Spawned bullet at {spawnPos} dir {dir} angle {angle}");
+        Debug.DrawLine(spawnPos, spawnPos + (Vector3)dir.normalized * 0.5f, Color.blue, 0.2f);
     }
 
     public void IncreaseAttackSpeed(float amount)
@@ -49,5 +56,26 @@ public class PlayerAttack : MonoBehaviour
     {
         damage += amount;
         Debug.Log($"[PlayerAttack] Урон пуль увеличен. Новый урон: {damage}");
+    }
+
+    // Accessors for saving/loading
+    public float GetFireCooldown()
+    {
+        return fireCooldown;
+    }
+
+    public void SetFireCooldown(float value)
+    {
+        fireCooldown = Mathf.Max(0.01f, value);
+    }
+
+    public int GetDamage()
+    {
+        return damage;
+    }
+
+    public void SetDamage(int value)
+    {
+        damage = Mathf.Max(0, value);
     }
 }

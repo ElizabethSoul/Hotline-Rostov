@@ -33,6 +33,8 @@ public class Spawner : MonoBehaviour
 
 	[Header("Смещение спавна (опционально)")]
 	[Tooltip("Радиус случайного смещения позиции спавна вокруг `spawnPoint`.")]
+
+	[SerializeField] private Canvas WictoryCanvas;
 	public float spawnRadius = 0f;
 
 	private int currentWave = 0;
@@ -73,6 +75,30 @@ public class Spawner : MonoBehaviour
 
 			enemiesThisWave += enemiesPerWaveIncrement;
 		}
+
+			// Дождаться, пока последние враги не будут убиты, затем остановить таймеры
+			yield return new WaitUntil(() => CountEnemiesWithTag() == 0);
+
+			Timer[] timers = GameObject.FindObjectsOfType<Timer>();
+			for (int t = 0; t < timers.Length; t++)
+			{
+				timers[t].StopTimer();
+			}
+
+			if (WictoryCanvas != null)
+				WictoryCanvas.gameObject.SetActive(true);
+
+			// Сохраняем прогресс игрока после завершения всех волн
+			Saves saves = GameObject.FindObjectOfType<Saves>();
+			if (saves != null)
+			{
+				saves.SaveAll();
+				Debug.Log("[Spawner] Прогресс игрока сохранён");
+			}
+			else
+			{
+				Debug.LogWarning("[Spawner] Компонент Saves не найден — прогресс не сохранён");
+			}
 	}
 
 	private void SpawnRandomEnemy()

@@ -21,6 +21,7 @@ public class PlayerScript : MonoBehaviour, IDamageable
     private ObjectsInteraction currentInteractable;
     [SerializeField] private Image hpBarImage;
     [SerializeField] private TextMeshProUGUI coinsText;
+    [SerializeField] private Canvas DeadCanvas;
 
     void Awake()
     {
@@ -117,6 +118,42 @@ public class PlayerScript : MonoBehaviour, IDamageable
         UpdateHPBar();
     }
 
+    public void IncreaseMaxHealth(float amount)
+    {
+        if (amount <= 0f) return;
+        maxHealth += amount;
+        // Optionally increase current health so player benefits immediately
+        currentHealth += amount;
+        currentHealth = Mathf.Min(currentHealth, maxHealth);
+        Debug.Log($"[Player] Базовое здоровье увеличено на {amount}. Сейчас: {currentHealth}/{maxHealth}");
+        UpdateHPBar();
+    }
+
+    // Accessors for saving/loading
+    public float GetMaxHealth()
+    {
+        return maxHealth;
+    }
+
+    public float GetCurrentHealth()
+    {
+        return currentHealth;
+    }
+
+    public void SetMaxHealth(float value)
+    {
+        if (value <= 0f) return;
+        maxHealth = value;
+        currentHealth = Mathf.Min(currentHealth, maxHealth);
+        UpdateHPBar();
+    }
+
+    public void SetCurrentHealth(float value)
+    {
+        currentHealth = Mathf.Clamp(value, 0f, maxHealth);
+        UpdateHPBar();
+    }
+
     private void UpdateHPBar()
     {
         if (hpBarImage != null)
@@ -135,6 +172,7 @@ public class PlayerScript : MonoBehaviour, IDamageable
 
     private void Die()
     {
+        DeadCanvas.gameObject.SetActive(true);
         Debug.Log("[Player] Игрок погиб!");
         gameObject.SetActive(false);
     }

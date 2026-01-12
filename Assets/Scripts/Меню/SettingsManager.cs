@@ -24,7 +24,6 @@ public class SettingsManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject);
 
         if (PlayerPrefs.HasKey(PREF_KEY))
         {
