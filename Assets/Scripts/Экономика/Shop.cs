@@ -59,19 +59,77 @@ public class Shop : ObjectsInteraction
         }
         CurrencyManager.AddCoins(-price);
         Debug.Log($"[Shop] Покупка совершена: товар {index}, стоимость {price}");
+
+        // Применить эффект товара
+        ApplyItemEffect(index);
     }
 
     private IEnumerator HideNotEnoughWindowAfterDelay()
     {
-        yield return new WaitForSeconds(3f);
-        
+        yield return new WaitForSeconds(2f);
         if (notEnoughWindow != null)
+        {
             notEnoughWindow.SetActive(false);
+        }
     }
-    public void CloseNotEnoughWindow()
+    private void ApplyItemEffect(int index)
     {
-        StopAllCoroutines();
-        if (notEnoughWindow != null) 
-            notEnoughWindow.SetActive(false);
+        switch (index)
+        {
+            case 0:
+                RestoreHP();
+                break;
+            case 1:
+                IncreaseAttackSpeed();
+                break;
+            case 2:
+                IncreaseBulletDamage();
+                break;
+            default:
+                Debug.LogWarning($"[Shop] Неизвестный эффект для товара {index}");
+                break;
+        }
+    }
+
+    public void RestoreHP()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            PlayerScript ps = player.GetComponent<PlayerScript>();
+            if (ps != null)
+            {
+                ps.RestoreToMaxHealth();
+                Debug.Log("[Shop] Здоровье игрока восстановлено до максимального");
+            }
+        }
+    }
+
+    public void IncreaseAttackSpeed()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            PlayerAttack pa = player.GetComponent<PlayerAttack>();
+            if (pa != null)
+            {
+                pa.IncreaseAttackSpeed(0.1f); // уменьшить cooldown на 0.1
+                Debug.Log("[Shop] Скорость атаки игрока повышена");
+            }
+        }
+    }
+
+    public void IncreaseBulletDamage()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            PlayerAttack pa = player.GetComponent<PlayerAttack>();
+            if (pa != null)
+            {
+                pa.IncreaseBulletDamage(5); // увеличить урон на 5
+                Debug.Log("[Shop] Урон от пуль игрока повышен");
+            }
+        }
     }
 }

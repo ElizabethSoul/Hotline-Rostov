@@ -38,4 +38,16 @@ public class PlayerAttack : MonoBehaviour
         if (debugMessages) Debug.Log($"Spawned bullet at {spawnPos} dir {dir}");
         Debug.DrawLine(spawnPos, spawnPos + Vector3.up * 0.1f, Color.blue, 0.2f);
     }
+
+    public void IncreaseAttackSpeed(float amount)
+    {
+        fireCooldown = Mathf.Max(0.1f, fireCooldown - amount);
+        Debug.Log($"[PlayerAttack] Скорость атаки увеличена. Новый cooldown: {fireCooldown}");
+    }
+
+    public void IncreaseBulletDamage(int amount)
+    {
+        damage += amount;
+        Debug.Log($"[PlayerAttack] Урон пуль увеличен. Новый урон: {damage}");
+    }
 }

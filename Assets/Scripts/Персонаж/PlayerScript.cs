@@ -110,6 +110,13 @@ public class PlayerScript : MonoBehaviour, IDamageable
         UpdateHPBar();
     }
 
+    public void RestoreToMaxHealth()
+    {
+        currentHealth = maxHealth;
+        Debug.Log($"[Player] Здоровье восстановлено до максимального: {currentHealth}/{maxHealth}");
+        UpdateHPBar();
+    }
+
     private void UpdateHPBar()
     {
         if (hpBarImage != null)
