@@ -134,5 +134,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01aa3bdb00c4fda47a20b2572138ecce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Wallet
+  objectType: 0
+  coinAmount: 0
+  healthAmount: 0
   minCoins: 5
   maxCoins: 10

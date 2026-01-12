@@ -101,6 +101,14 @@ public class PlayerScript : MonoBehaviour, IDamageable
             Die();
         }
     }
+    public void Heal(int amount)
+    {
+        currentHealth += amount;
+        currentHealth = Mathf.Min(currentHealth, maxHealth);
+        Debug.Log($"[Player] Восстановлено здоровье: {amount}. Текущее здоровье: {currentHealth}/{maxHealth}");
+        
+        UpdateHPBar();
+    }
 
     private void UpdateHPBar()
     {

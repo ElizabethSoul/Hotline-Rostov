@@ -645,6 +645,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c9ee1bfd73bded42bb67f8990d5933b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shop
+  objectType: 0
+  coinAmount: 0
+  healthAmount: 0
   shopCanvas: {fileID: 18974864}
   itemPrices: 050000000a000000
   notEnoughWindow: {fileID: 1147592898}
@@ -1925,6 +1928,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WaveSpawner
   itemPrefabs:
   - {fileID: 4167365996148222708, guid: 429ee3c6867ec714f857c74af89abf86, type: 3}
+  - {fileID: 4658048997042325900, guid: 6cfe85da664aa5645af23c48dd049459, type: 3}
   itemSpawnPoints:
   - {fileID: 2103867499}
   - {fileID: 472803466}

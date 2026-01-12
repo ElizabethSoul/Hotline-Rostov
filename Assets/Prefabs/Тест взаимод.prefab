@@ -37,6 +37,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &2530223249378264446
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -82,6 +83,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: -2008383360354572895, guid: ef3be6d6993e7c34b9ee129cedab176a, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -91,7 +93,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!114 &5400261551658905557
 MonoBehaviour:
@@ -105,6 +106,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bda6bbb618369e84fbbc79631656f730, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ObjectsInteraction
+  objectType: 1
+  coinAmount: 0
+  healthAmount: 10
 --- !u!95 &3622680104799461599
 Animator:
   serializedVersion: 7
