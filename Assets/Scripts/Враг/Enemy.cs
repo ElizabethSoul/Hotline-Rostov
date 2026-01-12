@@ -117,6 +117,13 @@ public class Enemy : MonoBehaviour
 
     private void Start()
     {
+        // Apply difficulty modifiers from SettingsManager (if available)
+        if (SettingsManager.Instance != null)
+        {
+            maxHealth = SettingsManager.Instance.GetEnemyHP(Mathf.RoundToInt(maxHealth));
+            attackDamage = SettingsManager.Instance.GetEnemyAttack(Mathf.RoundToInt(attackDamage));
+        }
+
         currentHealth = maxHealth;
         homePosition = (Vector2)transform.position;
         dropItems = GetComponent<DropItems>();

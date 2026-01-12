@@ -18,10 +18,24 @@ public class ItemSpawner : MonoBehaviour
         {   
             for (int j = 0; j < itemsPerWave; j++)
             {
+                if (itemSpawnPoints == null || itemSpawnPoints.Length == 0)
+                    yield break;
+
                 Transform itemSpawn = itemSpawnPoints[Random.Range(0, itemSpawnPoints.Length)];
+
+                if (itemPrefabs == null || itemPrefabs.Length == 0)
+                    continue;
+
                 GameObject item;
-                float chance = Random.value;
-                item = chance < 0.5f ? itemPrefabs[0] : itemPrefabs[1]; // 50/50 при нормальном HP
+                if (itemPrefabs.Length == 1)
+                {
+                    item = itemPrefabs[0];
+                }
+                else
+                {
+                    item = itemPrefabs[Random.Range(0, itemPrefabs.Length)];
+                }
+
                 Instantiate(item, itemSpawn.position, Quaternion.identity);
             }
             yield return new WaitForSeconds(timeBetweenWaves);
